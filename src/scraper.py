@@ -3,7 +3,14 @@ from bs4 import BeautifulSoup
 import csv
 import time
 import re
+from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
+RAW_DATA_DIR = BASE_DIR / "../data/raw"
+
+CURRENT_RANKINGS_FILE = RAW_DATA_DIR / "rankings_1.csv"
+MATCH_HISTORY_FILE = RAW_DATA_DIR / "tournament_histories.csv"
+RATINGS_HISTORY_FILE = RAW_DATA_DIR / "fighter_ratings_history.csv"
 class HEMARatingsScraper:
     BASE_URL = "https://hemaratings.com"
 
@@ -160,7 +167,36 @@ class HEMARatingsScraper:
             tournament_histories = [] 
         return tournament_histories
         
-
+    def get_ratings_history(self, fighter_id):
+        ratings_history = []
+        url = f"{self.BASE_URL}/fighters/details/{fighter_id}/"
+        response = self.session.get(url)
+        if response.status_code != 200:
+            return []
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        print('getting ratings history for fighter', fighter_id)     
+        longsword_ratings_history_data = soup.find_all('div', class_='rating-history-data')[0]
+        if not longsword_ratings_history_data:
+            return []
+        for rating_history_element in longsword_ratings_history_data.find_all('div', class_='rating-history-data-element'):
+            try:
+                date = rating_history_element.find('div', class_='rating-history-data-element-period').text.strip() if rating_history_element.find('div', class_='rating-history-data-element-period') else None
+                rank = rating_history_element.find('div', class_='rating-history-data-element-rank').text.strip() if rating_history_element.find('div', class_='rating-history-data-element-rank') else None
+                rating = rating_history_element.find('div', class_='rating-history-data-element-rating').text.strip() if rating_history_element.find('div', class_='rating-history-data-element-rating') else None
+            
+                ratings_history.append({
+                    'fighter_id': fighter_id,
+                    'date': date,
+                    'rank': rank,
+                    'rating': rating,
+                })
+            except Exception as e:
+                print(f"Error parsing rating history element: {e}")
+                continue            
+        return ratings_history            
+        
+    
     def save_to_csv(self, data, filename):
         if not data:
             print("No data to save.")
@@ -174,20 +210,6 @@ class HEMARatingsScraper:
         print(f"Saved data to {filename}")
 
 if __name__ == "__main__":
-    scraper = HEMARatingsScraper()
-    fighter_ids = []
-    with open('rankings_1.csv', 'r') as f:
-        reader = csv.DictReader(f)
-        rankings = list(reader)
-        for fighter in rankings:
-            fighter_ids.append(fighter['id'])
-    
-    aggregate_tournament_histories = []
-    for fighter_id in fighter_ids:
-        aggregate_tournament_histories.extend(scraper.get_match_history(fighter_id))
-    scraper.save_to_csv(aggregate_tournament_histories, "tournament_histories.csv")
-    # sets = scraper.get_rating_sets()
-    
     # if sets:
     #     # Example: Scrape the first set (usually Longsword)
     #     first_set = sets[0]
@@ -196,8 +218,26 @@ if __name__ == "__main__":
         
     # if rankings:
     #     scraper.save_to_csv(rankings, f"rankings_{first_set['id']}.csv")
-            
-            # Example: Fetch details for top 3 fighters
-            # for fighter in rankings[:3]:
-            #     details = scraper.get_match_history(fighter['id'])
-            #     print(f"Details for {fighter['name']}: {details}")
+ 
+    scraper = HEMARatingsScraper()
+    fighter_ids = []
+    with open(CURRENT_RANKINGS_FILE, 'r') as f:
+        reader = csv.DictReader(f)
+        rankings = list(reader)
+        for fighter in rankings:
+            fighter_ids.append(fighter['id'])
+    
+    aggregate_tournament_histories = []
+    aggregate_ratings_history = []
+    for fighter_id in fighter_ids:
+        # aggregate_tournament_histories.extend(scraper.get_match_history(fighter_id))
+        aggregate_ratings_history.extend(scraper.get_ratings_history(fighter_id))
+    # scraper.save_to_csv(aggregate_tournament_histories, "../data/raw/tournament_histories.csv")
+    scraper.save_to_csv(aggregate_ratings_history, RATINGS_HISTORY_FILE)
+    # sets = scraper.get_rating_sets()
+    
+    # scraper.save_to_csv(aggregate_tournament_histories, MATCH_HISTORY_FILE) 
+    # Example: Fetch details for top 3 fighters
+    # for fighter in rankings[:3]:
+    #     details = scraper.get_match_history(fighter['id'])
+    #     print(f"Details for {fighter['name']}: {details}")

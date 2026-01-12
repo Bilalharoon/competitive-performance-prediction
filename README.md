@@ -27,6 +27,13 @@ This will:
 3. Save the results to a CSV file (e.g., `rankings_1.csv`).
 
 ## Structure
-
-- `scraper.py`: Main script containing `HEMARatingsScraper` class.
+- `src/scraper.py`: Main script containing `HEMARatingsScraper` class.
 - `requirements.txt`: Python dependencies.
+
+
+## Data Pipeline
+1. Scrape fighter ratings and match histories
+2. Reconstruct fighter state chronologically
+3. Generate pre-match feature dataset
+4. Train and evaluate predictive models
+
