@@ -106,6 +106,8 @@ def build_dataset():
             'match_date': date,
             'ratings_diff': match['fighter_rating'] - match['opponent_rating'],
             'experience_diff': a.matches_fought - b.matches_fought,
+            'fighter_first_match': 1 if a.matches_fought == 0 else 0,
+            'opponent_first_match': 1 if b.matches_fought == 0 else 0,
             'days_since_last_fought_diff': val_days_a - val_days_b,
             'fighter_days_since_last_fought': val_days_a,
             'opponent_days_since_last_fought': val_days_b,
