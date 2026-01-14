@@ -136,15 +136,23 @@ This comparison was used as a validation step rather than a performance-chasing 
 ## Project Structure
 
 ```
-src/
+HEMARATINGSANALYSIS/
 ├── data/
 │   ├── raw/
 │   └── processed/
-├── state/
-│   └── fighter_state.py
-├── build_dataset.py
-├── train_baseline.py
-├── train_lightgbm.py
+├── src/
+│   ├── fighter_state.py
+│   ├── build_dataset.py
+│   ├── scraper.py
+│   └── models/
+│       ├── logistic_regression.py
+│       └── lightgbm.py
+├── tests/
+│   ├── build_dataset_test.py
+│   └── scraper_test.py
+|
+├── notebooks/
+│   └── feature_sanity_check.ipynb
 └── README.md
 ```
 
