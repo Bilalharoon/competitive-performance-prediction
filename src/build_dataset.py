@@ -75,6 +75,7 @@ def build_dataset():
     
     matches['fighter_rating'] = matches['fighter_rating'].fillna(1000.0)
     matches['opponent_rating'] = matches['opponent_rating'].fillna(1000.0) 
+    matches['match_id'] = pd.util.hash_pandas_object(matches[['fighter_id', 'opponent_id', 'tournament_date']]).astype('int64')
     print(matches.head())
     print('Building dataset...')
     fighter_states: dict[int, FighterState] = {}
@@ -101,6 +102,7 @@ def build_dataset():
         # Just use match['fighter_rating'] directly.
         
         rows.append({
+            'match_id': match['match_id'],
             'fighter_id': f_id,
             'opponent_id': o_id,
             'match_date': date,

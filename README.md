@@ -2,123 +2,134 @@
 
 ## Overview
 
-This project builds a **pre-match win probability model** for competitive HEMA (Historical European Martial Arts) tournaments, using publicly available fighter ratings and match histories.
+This project builds a **pre-match win probability model** for competitive HEMA (Historical European Martial Arts) tournaments using publicly available fighter ratings and match histories.
 
-The goal is to predict the probability that a fighter wins a match **using only information that would have been available before the match occurred**, with careful attention to temporal correctness and data leakage prevention.
+The goal is to estimate:
+
+> **P(fighter wins | information available *before* the match)**
+
+The project emphasizes **temporal correctness**, **leakage prevention**, and **interpretability**, mirroring real-world applied machine learning constraints rather than benchmark-style modeling.
 
 ---
 
 ## Problem Statement
 
-Given two fighters scheduled to compete in a tournament bout, estimate:
+Given two fighters scheduled to compete in a tournament bout, predict the probability that the focal fighter wins using only pre-match information.
 
-> **P(fighter wins | pre-match information)**
+Key challenges addressed:
 
-This is a binary classification problem with real-world constraints:
-
-* Ratings are updated monthly
+* Ratings are updated monthly, not per match
 * Fighters may have long periods of inactivity
-* Many competitors have limited or no prior match history (cold start)
+* Many competitors appear with little or no prior history (cold start)
+
+---
+
+## Data Collection
+
+Match and rating data were collected programmatically from publicly accessible sources.
+
+To ensure reliable and respectful data acquisition, the scraping pipeline was designed with:
+
+* Rate-limited HTTP requests
+* Exponential backoff retry logic for transient failures
+* Idempotent requests to allow safe restarts
+
+This allowed the data pipeline to run unattended and consistently without overwhelming the source.
 
 ---
 
 ## Data Sources
 
-* **Match history dataset**
-  Individual tournament bouts with fighter IDs, opponents, divisions, stages, and outcomes.
+* **Tournament match history**: individual bouts with fighter IDs, opponents, divisions, stages, and outcomes
+* **Rating history**: monthly snapshots of fighter ratings and confidence values published by a third-party rating system
 
-* **Rating history dataset**
-  Monthly snapshots of fighter ratings and confidence scores published by a third-party rating system.
-
-All joins between matches and ratings are performed **backward in time** to ensure that no future information is used.
-
----
-
-## Feature Engineering
-
-### Core Principles
-
-* **Strict temporal ordering** (no leakage)
-* **Causal feature construction**
-* **Explicit handling of missing / cold-start cases**
-
-### Pre-Match Features
-
-| Feature                           | Description                                                     |
-| --------------------------------- | --------------------------------------------------------------- |
-| `ratings_diff`                    | Difference between fighter and opponent rating at time of match |
-| `experience_diff`                 | Difference in total prior matches                               |
-| `fighter_days_since_last_fought`  | Days since fighter’s previous match                             |
-| `opponent_days_since_last_fought` | Days since opponent’s previous match                            |
-| `days_since_last_fought_diff`     | Relative recency advantage                                      |
-| `fighter_first_match`             | Flag indicating fighter has no prior match history              |
-| `opponent_first_match`            | Flag indicating opponent has no prior match history             |
-
-Cold-start cases are handled explicitly via flags rather than misleading numeric encodings.
+All rating joins are performed **backward in time** to ensure no future information is used.
 
 ---
 
 ## Dataset Construction
 
-The dataset is generated through a reproducible pipeline:
+The dataset is built through a reproducible pipeline:
 
 1. Load raw match and rating history data
-2. Normalize and sort by date
-3. Join ratings **backward in time** using temporal joins
-4. Track per-fighter state (experience, recency) chronologically
+2. Normalize and sort all data chronologically
+3. Join ratings to matches using backward-in-time temporal joins
+4. Track per-fighter state (experience and recency) in strict match order
 5. Generate pre-match features
-6. Freeze the dataset for modeling
+6. Drop matches without valid pre-match information
+7. Freeze the dataset for modeling
 
-Final dataset size:
+Final dataset:
 
 * **28,684 matches**
-* **Temporal train/test split** (no random shuffling)
+* Temporal train/test split based on match date (no random shuffling)
 
 ---
 
-## Baseline Model
+## Feature Engineering
 
-### Model
+### Design Principles
 
-* **Logistic Regression** (interpretable baseline)
+* Only information available before the match is used
+* Temporal causality is strictly enforced
+* Missing history is handled explicitly (never encoded as zero)
 
-### Features Used
+### Pre-Match Features
 
-* Ratings difference
-* Experience difference
-* Recency features
-* First-match flags
+| Feature                           | Description                                                  |
+| --------------------------------- | ------------------------------------------------------------ |
+| `ratings_diff`                    | Rating difference between fighter and opponent at match time |
+| `experience_diff`                 | Difference in number of prior matches                        |
+| `fighter_days_since_last_fought`  | Days since fighter’s previous match                          |
+| `opponent_days_since_last_fought` | Days since opponent’s previous match                         |
+| `days_since_last_fought_diff`     | Relative recency advantage                                   |
+| `fighter_first_match`             | Fighter has no prior recorded matches                        |
+| `opponent_first_match`            | Opponent has no prior recorded matches                       |
 
-### Evaluation Setup
+Cold-start cases are handled via explicit flags rather than misleading numeric encodings.
 
-* Train/test split based on match date
-* Metrics reported on held-out future data
+---
 
-### Results
+## Modeling
 
-* **ROC-AUC:** 0.79
-* **Accuracy:** ~71%
+### Baseline Model: Logistic Regression
 
-The learned coefficients align with domain expectations:
+A logistic regression model was used as an interpretable baseline.
+
+**Results (held-out future data):**
+
+* ROC-AUC: ~0.79
+* Accuracy: ~71%
+
+Coefficient inspection shows:
 
 * Rating difference is the dominant predictor
-* Experience provides a secondary advantage
-* First-match fighters are slightly disadvantaged
-* Recency effects are present but smaller, as expected given rating decay
+* Experience provides a modest secondary advantage
+* Cold-start effects are asymmetric but meaningful
+* Recency effects are present but smaller, consistent with rating decay already encoding inactivity
 
 ---
 
-## Why This Project Matters
+### Nonlinear Model: LightGBM
 
-This project demonstrates:
+A tree-based LightGBM model was trained using the same features and temporal split.
 
-* Temporal data engineering
-* Leakage-safe feature construction
-* Cold-start handling
-* Interpretable modeling
-* End-to-end ML pipeline design
+**Outcome:**
 
-It mirrors real production ML constraints more closely than typical benchmark datasets.
+* Performance (ROC-AUC and accuracy) closely matched logistic regression
+
+**Interpretation:**
+This indicates that the engineered features capture most of the predictive signal in a near-linear form. Additional nonlinear modeling does not materially improve performance, validating the feature design and confirming the suitability of a simple, interpretable model for this problem.
+
+---
+
+## Model Comparison Summary
+
+* Logistic regression and LightGBM achieve comparable performance
+* No evidence of strong nonlinear interactions beyond engineered features
+* Feature engineering quality dominates model choice
+
+This comparison was used as a validation step rather than a performance-chasing exercise.
 
 ---
 
@@ -133,15 +144,31 @@ src/
 │   └── fighter_state.py
 ├── build_dataset.py
 ├── train_baseline.py
+├── train_lightgbm.py
 └── README.md
 ```
+
+---
+
+## Why This Project Matters
+
+This project demonstrates:
+
+* Leakage-safe temporal feature engineering
+* Cold-start handling in real competition data
+* End-to-end ML pipeline construction
+* Model comparison driven by insight, not metrics chasing
+* Interpretable results aligned with domain expectations
+
+It reflects production-style applied ML rather than benchmark optimization.
 
 ---
 
 ## Current Status
 
 * Dataset construction complete (v1 frozen)
-* Logistic regression baseline implemented and evaluated
+* Logistic regression baseline evaluated
+* Nonlinear model comparison completed
 
 ---
 
@@ -149,23 +176,11 @@ src/
 
 * Probability calibration analysis
 * Feature ablation study
-* Nonlinear models (tree-based)
-* Division-specific modeling
-* Comparison against published win probabilities
+* Division- and stage-specific modeling
+* Model monitoring across eras
 
 ---
 
 ## Notes
 
-This project is intended as a **demonstration of applied machine learning**, not as a commercial betting system.
-
----
-
-If you want, next I can:
-
-* Tighten this for a **portfolio site**
-* Add a **“Results” section with plots**
-* Rewrite it for **GitHub vs recruiter PDF**
-* Help you turn this into **resume bullets**
-
-Just tell me where you want to aim.
+This project is intended as a demonstration of applied machine learning methodology and engineering judgment, not as a commercial betting or forecasting system.

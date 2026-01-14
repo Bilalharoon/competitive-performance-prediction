@@ -42,7 +42,7 @@ def train_logistic_regression():
     print(f"Dataset shape: {df.shape}")
 
     # Split dataset
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
     print(f"Train set size: {X_train.shape[0]}")
     print(f"Test set size: {X_test.shape[0]}")
 
@@ -52,7 +52,7 @@ def train_logistic_regression():
     from sklearn.pipeline import make_pipeline
     
     # Create a pipeline with scaling and logistic regression
-    model = make_pipeline(StandardScaler(), LogisticRegression(random_state=42))
+    model = make_pipeline(StandardScaler(), LogisticRegression())
     model.fit(X_train, y_train)
 
     # Predictions
