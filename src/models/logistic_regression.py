@@ -17,7 +17,11 @@ def train_logistic_regression():
         return
 
     df = pd.read_csv(INPUT_FILE)
-
+    # Ensure temporal ordering before split
+    if 'match_date' in df.columns:
+        df['match_date'] = pd.to_datetime(df['match_date'])
+        df = df.sort_values(by='match_date').reset_index(drop=True)
+    print(f"Dataset shape: {df.shape}")
     # Features and Target
     # We drop metadata columns and categorical columns for the baseline
     # Identifiers: fighter_id, opponent_id, match_date

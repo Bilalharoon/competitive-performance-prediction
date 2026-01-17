@@ -14,6 +14,11 @@ def train_lightgbm():
         print(f"Error: Dataset not found at {INPUT_FILE}")
         return
     df = pd.read_csv(INPUT_FILE)
+    # Ensure temporal ordering before split
+    if 'match_date' in df.columns:
+        df['match_date'] = pd.to_datetime(df['match_date'])
+        df = df.sort_values(by='match_date').reset_index(drop=True)
+    print(f"Dataset shape: {df.shape}")
     categorical_cols = ['division', 'stage']
     for col in categorical_cols:
         if col in df.columns:
