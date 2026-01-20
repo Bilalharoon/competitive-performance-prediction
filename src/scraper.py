@@ -120,7 +120,7 @@ class HEMARatingsScraper:
         Fetches detailed stats for a fighter.
         """
         url = f"{self.BASE_URL}/fighters/details/{fighter_id}/"
-        print(f"Fetching details for fighter {fighter_id}...")
+        print(f"Fetching match history for fighter {fighter_id}...")
         response = self.session.get(url)
         if response.status_code != 200:
             if response.status_code == 429:
@@ -130,6 +130,7 @@ class HEMARatingsScraper:
                 return self.get_match_history(fighter_id)
             else:
                 raise Exception(f"Failed to fetch details for fighter {fighter_id}. Status code: {response.status_code}")
+        self._sleep_time = 1
         soup = BeautifulSoup(response.content, 'html.parser')
         try:
             longsword_tournament_history = soup.find('div', id='accordion_results_0.')
@@ -244,14 +245,13 @@ if __name__ == "__main__":
     aggregate_tournament_histories = []
     aggregate_ratings_history = []
     for fighter_id in fighter_ids:
-        # aggregate_tournament_histories.extend(scraper.get_match_history(fighter_id))
+        aggregate_tournament_histories.extend(scraper.get_match_history(fighter_id))
         # don't get rate limited by the server
-        aggregate_ratings_history.extend(scraper.get_ratings_history(fighter_id))
-    # scraper.save_to_csv(aggregate_tournament_histories, "../data/raw/tournament_histories.csv")
-    scraper.save_to_csv(aggregate_ratings_history, RATINGS_HISTORY_FILE)
+        # aggregate_ratings_history.extend(scraper.get_ratings_history(fighter_id))
+    scraper.save_to_csv(aggregate_tournament_histories, MATCH_HISTORY_FILE)
+    # scraper.save_to_csv(aggregate_ratings_history, RATINGS_HISTORY_FILE)
     # sets = scraper.get_rating_sets()
     
-    # scraper.save_to_csv(aggregate_tournament_histories, MATCH_HISTORY_FILE) 
     # Example: Fetch details for top 3 fighters
     # for fighter in rankings[:3]:
     #     details = scraper.get_match_history(fighter['id'])
